@@ -9,10 +9,10 @@ import os
 import pandas as pd
 
 files = [filename for filename in os.listdir() if filename.endswith('.xlsx')]
-data = [pd.read_excel(file, None) for file in files]
+data = {file:pd.read_excel(file, None) for file in files}
 
-COMMON_INDEX = 'NIP'
-
+#CONSTANTS
+COMMON_INDEX = 'NIP'  # primary key for all indices
 USELESS_SHEETS = ['Acceuil', 'Modifications', 'D-Epidémio', 'D-Préhosp',
                   'D-Box SU', 'D-Intervention', 'D-Soins intensifs',
                   'D-Diagnostics et Scores', 'Lettre info Patients', 'Feuil1',
@@ -21,6 +21,9 @@ USELESS_SHEETS = ['Acceuil', 'Modifications', 'D-Epidémio', 'D-Préhosp',
 # unable to find general criteria detect complex indices
 COMPLEX_INDEX_BOUNDS = ['HEAD / NECK', 'FACE', 'CHEST', 'ABDOMEN',
                         'ETREMITIES / PELVIC GIRDLE', 'EXTERNAL']
+# dictionary of forbidden characters in indices & their replacements
+FORBIDDEN = {'Δ':'delta', ' ':'_', '/':'', '.':'', 'é':'e', 'è':'e', 'ï':'i',
+             ':':'_', '(':'', ')':'', 'à':'a', "'":'', '-':'', '≥':'>='}
 
 def find_sheet_index(sheet):
     index_loc = np.where(sheet.astype(str) == COMMON_INDEX)  # str conversion bc exception if str/int mix
@@ -65,6 +68,21 @@ def wrong_sheet_index(sheet):
     else:
         return False
 
+def sanitize_index(index_aslist):
+    """
+    Iteratively modifies every column title to replace forbidden glyphs.
+    Cannot do better than for loop due to str immutability.
+    """
+    l = []
+    for v in index_aslist:
+        a = v
+        b = None
+        for fc,fv in FORBIDDEN.items():
+            b = a.replace(fc,fv)
+            a = b
+        l.append(a.lower())
+    return l
+
 def clean_sheet_index(sheet):
     """
     Defines rules to clean the sheet index if wrong_sheet_index() returns True.
@@ -90,7 +108,7 @@ def clean_data(d):
     """
     data = deepcopy(d)  # avoid mutation
     
-    for f in data:
+    for f in list(data.values()):
         for k in list(f.keys()):
             # remove useless sheets
             if k in USELESS_SHEETS:
@@ -98,8 +116,9 @@ def clean_data(d):
             # additional rules as elif
             elif wrong_sheet_index(f[k]):
                 f[k] = clean_sheet_index(f[k])
+                f[k].columns = sanitize_index(f[k].columns)
+            else:
+                f[k].columns = sanitize_index([str(e) for e in f[k].columns])
     return data
 
 clean = clean_data(data)
-
-#[[k for k,v in file.items() if k not in USELESS_SHEETS] for file in data]
