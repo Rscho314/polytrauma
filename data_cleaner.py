@@ -13,6 +13,7 @@ data = {file:pd.read_excel(file, None) for file in files}
 
 #CONSTANTS
 COMMON_INDEX = 'NIP'  # primary key for all indices
+SUFFIX = ('_x', '_y')  # _x & _y are the default suffix for pd.merge(). Modifiy as needed.
 USELESS_SHEETS = ['Acceuil', 'Modifications', 'D-Epidémio', 'D-Préhosp',
                   'D-Box SU', 'D-Intervention', 'D-Soins intensifs',
                   'D-Diagnostics et Scores', 'Lettre info Patients', 'Feuil1',
@@ -121,4 +122,48 @@ def clean_data(d):
                 f[k].columns = sanitize_index([str(e) for e in f[k].columns])
     return data
 
+def fuse_joined(col, data):
+    """
+    Fuses merged columns in dataframe.
+    """
+    print('yep')
+    col = col.astype('object')
+    col = col.fillna(data[col.name + SUFFIX[0]])  # priority given to left for fusion
+    col = col.astype('object')
+    col = col.fillna(data[col.name + SUFFIX[1]])
+    #return col.name
+
+def fuse_rows(row, names, common):
+    rd = dict(zip(names, row))
+    for c in common:
+        rd[c] = rd[c + SUFFIX[0]]
+        if pd.isnull(rd[c]):
+            rd[c] = rd[c + SUFFIX[1]]
+    return list(rd.values())
+
+def make_dataset(d):
+    """
+    Performs an iterative outer join on all tables, to produce a single dataset
+    """
+    df = pd.DataFrame(data = {COMMON_INDEX.lower():[]})
+    for fn,f in d.items():
+        for sn, s in f.items():
+            nd = pd.merge(df, s, how='outer', on=COMMON_INDEX.lower(),
+                         suffixes=SUFFIX)
+
+            cc = list(set(df.columns) & set(s.columns))  # common columns
+            cc.remove(COMMON_INDEX.lower())
+            cd = [c + SUFFIX[0] for c in cc] + [c + SUFFIX[1] for c in cc]
+            #ct = cc + cd
+            nd = nd.reindex(columns=[*nd.columns.tolist(), *cc])
+            cr = list(set(nd.columns) - set(cd))
+            nd = nd.astype('object')
+            nd = nd.apply(lambda r,n,c: fuse_rows(r,n,c), args=(nd.columns,cc), axis=1)
+            #nd[cc] = nd[cc].apply(lambda c,d: fuse_joined(c,d), args=(nd,), axis=0)
+            nd = nd[cr]
+            df = nd.copy()
+    return df
+
+
 clean = clean_data(data)
+#dataset = make_dataset(clean)
