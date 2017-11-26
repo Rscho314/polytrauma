@@ -67,13 +67,6 @@ for f in data.values():
             f[sanitize(dfname)].columns = [sanitize(str(c).lower()) for c in f[sanitize(dfname)].columns]
             f[sanitize(dfname)] = f[sanitize(dfname)].rename(columns=renamer())
 
-#Put the sanitized data into sqlite
-conn = sql.connect('./polytrauma.db')
-for fn, f in data.items():    
-    for dfn, df in f.items():        
-        df.to_sql(fn + dfn, conn, if_exists='replace', index=False)
-
-
 def find_sheet_index(sheet):
     index_loc = np.where(sheet.astype(str) == COMMON_INDEX)  # str conversion bc exception if str/int mix
     return index_loc[0][0]  # take first occurence of index
@@ -82,7 +75,10 @@ def has_complex_index(sheet):
     """
     Detects whether sheet has index on > 1 line.
     """
-    index_row = find_sheet_index(sheet)
+    try:
+        index_row = find_sheet_index(sheet)
+    except IndexError:
+        return False
     if {e for e in sheet.iloc[index_row,:].tolist()}.intersection(COMPLEX_INDEX_BOUNDS) != set():
         return True
     else:
@@ -128,6 +124,7 @@ def sanitize_index(index_aslist):
         b = None
         for fc,fv in FORBIDDEN.items():
             b = a.replace(fc,fv)
+            b = re.sub('\_\_+', '_', b)
             a = b
         l.append(a.lower())
     return l
@@ -212,6 +209,13 @@ def make_dataset(d):
             df = nd.copy()
     return df
 
-
 clean = clean_data(data)
-#dataset = make_dataset(clean)
+
+#Put the sanitized data into sqlite
+conn = sql.connect('./polytrauma.db')
+for f in clean.values():    
+    for dfn in f.keys():
+        f[dfn] = f[dfn].rename(columns=renamer())
+for fn,f in clean.items():    
+    for dfn,df in f.items():
+        df.to_sql(fn + dfn, conn, if_exists='replace', index=False)
