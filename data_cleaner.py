@@ -7,9 +7,8 @@ from copy import deepcopy
 import numpy as np
 import os
 import pandas as pd
-
-files = [filename for filename in os.listdir() if filename.endswith('.xlsx')]
-data = {file:pd.read_excel(file, None) for file in files}
+import re
+import sqlite3 as sql
 
 #CONSTANTS
 COMMON_INDEX = 'NIP'  # primary key for all indices
@@ -24,7 +23,56 @@ COMPLEX_INDEX_BOUNDS = ['HEAD / NECK', 'FACE', 'CHEST', 'ABDOMEN',
                         'ETREMITIES / PELVIC GIRDLE', 'EXTERNAL']
 # dictionary of forbidden characters in indices & their replacements
 FORBIDDEN = {'Δ':'delta', ' ':'_', '/':'', '.':'', 'é':'e', 'è':'e', 'ï':'i',
-             ':':'_', '(':'', ')':'', 'à':'a', "'":'', '-':'', '≥':'>='}
+             ':':'', '(':'', ')':'', 'à':'a', "'":'', '-':'', '≥':'>=',
+             '+':''}
+FORBIDDEN_COLNAME = {'Data_registre2013_20131231.xlsx':'2013',
+                     'REGISTRE SUISSE 2016_version définitive.xlsx':'2016',
+                     'REGISTRE SUISSE 2015_2017.03.09.xlsx':'2015',
+                     'REGISTRE SUISSE 2017-2017-11-16.xlsx':'2017',
+                     'REGISTRE SUISSE 2014_2015.03.10xlsx.xlsx':'2014'
+                     }
+FORBIDDEN_COLNAME.update(FORBIDDEN)
+
+#Sanitize file names and indices
+def sanitize(s):
+    for fc, rc in FORBIDDEN_COLNAME.items():
+        s = s.replace(fc,rc)
+        s = re.sub('\_\_+', '_', s)
+    return s
+
+class renamer():
+    """
+    renames dataframe columns with suffix if duplicate of another column.
+    """
+    def __init__(self):
+        self.d = dict()
+
+    def __call__(self, x):
+        if x not in self.d:
+            self.d[x] = 0
+            return x
+        else:
+            self.d[x] += 1
+            return "%s_%d" % (x, self.d[x])
+                  
+files = [filename for filename in os.listdir() if filename.endswith('.xlsx')]
+data = {sanitize(file):dict(pd.read_excel(file, None)) for file in files}
+    
+for f in data.values():    
+    for dfname in list(f.keys()):   
+        if dfname in USELESS_SHEETS:
+            del f[dfname]
+        else:
+            f[sanitize(dfname)] = f.pop(dfname)
+            f[sanitize(dfname)].columns = [sanitize(str(c).lower()) for c in f[sanitize(dfname)].columns]
+            f[sanitize(dfname)] = f[sanitize(dfname)].rename(columns=renamer())
+
+#Put the sanitized data into sqlite
+conn = sql.connect('./polytrauma.db')
+for fn, f in data.items():    
+    for dfn, df in f.items():        
+        df.to_sql(fn + dfn, conn, if_exists='replace', index=False)
+
 
 def find_sheet_index(sheet):
     index_loc = np.where(sheet.astype(str) == COMMON_INDEX)  # str conversion bc exception if str/int mix
