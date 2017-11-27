@@ -219,3 +219,4 @@ for f in clean.values():
 for fn,f in clean.items():    
     for dfn,df in f.items():
         df.to_sql(fn + dfn, conn, if_exists='replace', index=False)
+conn.close()
