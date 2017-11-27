@@ -9,6 +9,7 @@ import numpy as np
 import os
 import pandas as pd
 import re
+from unidecode import unidecode
 
 #CONSTANTS
 COMMON_INDEX = 'NIP'  # primary key for all indices
@@ -25,7 +26,7 @@ COMPLEX_INDEX_BOUNDS = ['HEAD / NECK', 'FACE', 'CHEST', 'ABDOMEN',
 # dictionary of forbidden characters in indices & their replacements
 BAD_CHARS = {'Δ':'delta', ' ':'_', '/':'', '.':'', 'é':'e', 'è':'e', 'ï':'i',
              ':':'', '(':'', ')':'', 'à':'a', "'":'', '-':'', '≥':'>=',
-             '+':'', '\\':'', '\n':'', ',':''}
+             '+':'', '\\':'', '\n':'', ',':'', 'ü':'u'}
 CLEAN_FILENAMES = {'Data_registre2013_20131231.xlsx':'2013',
                      'REGISTRE SUISSE 2016_version définitive.xlsx':'2016',
                      'REGISTRE SUISSE 2015_2017.03.09.xlsx':'2015',
@@ -138,6 +139,7 @@ sheets_sane_index = {sn:sanitize_colnames(s).rename(columns=renamer()) for sn,s 
 
 # sanitize sheet contents
 # getting unique values in each column
+"""
 uniques = {}
 for sn,s in sheets_sane_index.items():
     su = {}
@@ -151,7 +153,7 @@ for sn,s in uniques.items():
         if c.dtype == 'O':
             with open('./uniques/'+ sn + '_save', 'a') as f:
                 f.write(sn + '_' + cn + ': ' + np.array_str(c) + '\n\n')
-            
+"""            
 # join all tables to make the final dataset
 def make_dataset(d):
     """
@@ -183,17 +185,32 @@ for s in sheets_sane_index.values():
 
 # make a maximally unique index
 sheets_unique_index = deepcopy(sheets_sane_index)
+
+ctrl = pd.DataFrame(columns=['sheet',
+                     'unique_index?',
+                     'any_null?'])
+
 for sn,s in sheets_unique_index.items():
-    s['ui'] = s[list(cc)].apply(lambda x: ''.join(sanitize_names(str(x).replace(' ',''))), axis=1)
-    print(sn + ':\t' + str(s.ui.unique().size==s.ui.size))
+    sheets_unique_index[sn] = s.dropna(subset=['edsfid'])
+    sheets_unique_index[sn] = sheets_unique_index[sn].assign(ui = sheets_unique_index[sn].edsfid.astype(str))
+    #s['ui'] = s['edsfid'].apply(lambda x: ''.join(x.astype(str)))
+    ctrl = ctrl.append({'sheet':sn,
+                        'unique_index?':bool(sheets_unique_index[sn].ui.unique().size<sheets_unique_index[sn].ui.size),
+                        'any_null?':bool(sheets_unique_index[sn]['ui'].isnull().any())}, ignore_index=True)
+
+print(ctrl)
 
 ds = make_dataset(sheets_unique_index)
 
 # further clean the dataset (!!mutation)
-ds.drop(list(ds.filter(regex = 'unknown_\\d+$|unnamed_\\d+$')),
+ds.dropna(axis=1, how='all', inplace=True)
+#ds.drop([c for c in ds.columns if len(ds[c].unique()) == 1],inplace=True,axis=1)
+ds.drop([c for c in ds.columns if 0 in ds[c].unique().tolist() and ds[c].unique().shape[0] is 2 and ds[c].isnull().values.any()],inplace=True,axis=1)
+ds.drop([c for c in ds.columns if '0 = non' in ds[c].unique().tolist() and ds[c].unique().shape[0] is 2 and ds[c].isnull().values.any()],inplace=True,axis=1)
+ds.drop(list(ds.filter(regex = 'unknown_\\d+$|unnamed_\\d+$|↓|^_\\d+$|^_*$')),
         axis = 1, inplace = True)
-ds.drop(list(ds.filter(regex = 'unknown|unnamed')),
-        axis = 1, inplace = True)
+ds.drop(['edsfid'], axis=1, inplace=True)
+ds.rename(columns={'ui':'eds'}, inplace=True)
 
-len({c for c,v in ds.items() if v.isnull().sum()/ds.shape[0]>0.99})
+ds = ds.applymap(lambda s: unidecode(s) if type(s) is str else s)
 ds.to_csv('final_dataset.csv')
