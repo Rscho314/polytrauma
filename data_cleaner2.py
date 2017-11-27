@@ -9,7 +9,6 @@ import numpy as np
 import os
 import pandas as pd
 import re
-import sqlite3 as sql
 
 #CONSTANTS
 COMMON_INDEX = 'NIP'  # primary key for all indices
@@ -188,7 +187,13 @@ for sn,s in sheets_unique_index.items():
     s['ui'] = s[list(cc)].apply(lambda x: ''.join(sanitize_names(str(x).replace(' ',''))), axis=1)
     print(sn + ':\t' + str(s.ui.unique().size==s.ui.size))
 
-
-
 ds = make_dataset(sheets_unique_index)
+
+# further clean the dataset (!!mutation)
+ds.drop(list(ds.filter(regex = 'unknown_\\d+$|unnamed_\\d+$')),
+        axis = 1, inplace = True)
+ds.drop(list(ds.filter(regex = 'unknown|unnamed')),
+        axis = 1, inplace = True)
+
+len({c for c,v in ds.items() if v.isnull().sum()/ds.shape[0]>0.99})
 ds.to_csv('final_dataset.csv')
