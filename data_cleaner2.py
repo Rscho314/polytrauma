@@ -155,10 +155,19 @@ for sn,s in uniques.items():
                 f.write(sn + '_' + cn + ': ' + np.array_str(c) + '\n\n')
 """            
 # join all tables to make the final dataset
-def make_dataset(d):
+def make_dataset_left(d, k):
     """
     Performs an iterative outer join on all tables, to produce a single dataset
     """
+    df = pd.DataFrame({UNIQUE_INDEX:k})
+    for sn,s in d.items():
+        df = pd.merge(df, s, how='left', on=UNIQUE_INDEX, sort=False)
+    return df
+
+def make_dataset(d):
+    '''
+    Performs an iterative outer join on all tables, to produce a single dataset
+    '''
     df = pd.DataFrame(columns=['ui'])
     for sn,s in d.items():
         nd = pd.merge(df, s, how='outer', on=UNIQUE_INDEX, suffixes=SUFFIX)
@@ -197,20 +206,34 @@ for sn,s in sheets_unique_index.items():
     ctrl = ctrl.append({'sheet':sn,
                         'unique_index?':bool(sheets_unique_index[sn].ui.unique().size<sheets_unique_index[sn].ui.size),
                         'any_null?':bool(sheets_unique_index[sn]['ui'].isnull().any())}, ignore_index=True)
-
 print(ctrl)
 
+#keys = list(set(sum([s['ui'].tolist() for s in sheets_unique_index.values()],[])))
 ds = make_dataset(sheets_unique_index)
 
 # further clean the dataset (!!mutation)
-ds.dropna(axis=1, how='all', inplace=True)
-#ds.drop([c for c in ds.columns if len(ds[c].unique()) == 1],inplace=True,axis=1)
+ds.rename(columns={'ui':'eds'}, inplace=True)
+ds = ds.set_index('eds')
+# drop
+#ds.dropna(axis=0, how='all', inplace=True)
+ds.dropna(axis=0, inplace=True, thresh=((lambda x: round(x*0.06))(ds.shape[0])))
+ds.dropna(axis=1, inplace=True, thresh=((lambda x: round(x*0.1))(ds.shape[1])))
 ds.drop([c for c in ds.columns if 0 in ds[c].unique().tolist() and ds[c].unique().shape[0] is 2 and ds[c].isnull().values.any()],inplace=True,axis=1)
 ds.drop([c for c in ds.columns if '0 = non' in ds[c].unique().tolist() and ds[c].unique().shape[0] is 2 and ds[c].isnull().values.any()],inplace=True,axis=1)
-ds.drop(list(ds.filter(regex = 'unknown_\\d+$|unnamed_\\d+$|↓|^_\\d+$|^_*$')),
+ds.drop(list(ds.filter(regex = 'unknown|unnamed|↓|^_\\d+$|^_*$|^[0-9]+$')),
         axis = 1, inplace = True)
-ds.drop(['edsfid'], axis=1, inplace=True)
-ds.rename(columns={'ui':'eds'}, inplace=True)
-
+#ds.drop(['edsfid'], axis=1, inplace=True)
+#ds.drop([c for c in  ds.columns if ds[c].notnull().sum()/ds.shape[0]<0.1], axis=1, inplace=True)
+# replace
+ds.replace(to_replace={'^0\s*=\s*non$':0, '^1\s*=\s*oui$':1,
+                       '^\s*oui\s*$':1, '^\s*non\s*$':0, '^9\s*=\s*inconnu$':9,
+                       '^NR$':np.nan
+                       },inplace=True,regex=True)
+ds = ds.applymap(lambda x: np.nan if type(x) is not str and x == 999 else x)
 ds = ds.applymap(lambda s: unidecode(s) if type(s) is str else s)
+
+# group by eds
+#gds = ds.groupby('eds')
+#dsf = gds.nth(0,'all')
+
 ds.to_csv('final_dataset.csv')
