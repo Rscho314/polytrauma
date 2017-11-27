@@ -13,6 +13,8 @@ import sqlite3 as sql
 
 #CONSTANTS
 COMMON_INDEX = 'NIP'  # primary key for all indices
+UNIQUE_INDEX = 'ui'  # unique index across all tables
+SUFFIX = ('_x', '_y')  # _x & _y are the default suffix for pd.merge(). Modifiy as needed.
 USELESS_SHEETS = ['Acceuil', 'Modifications', 'D-Epidémio', 'D-Préhosp',
                   'D-Box SU', 'D-Intervention', 'D-Soins intensifs',
                   'D-Diagnostics et Scores', 'Lettre info Patients', 'Feuil1',
@@ -24,7 +26,7 @@ COMPLEX_INDEX_BOUNDS = ['HEAD / NECK', 'FACE', 'CHEST', 'ABDOMEN',
 # dictionary of forbidden characters in indices & their replacements
 BAD_CHARS = {'Δ':'delta', ' ':'_', '/':'', '.':'', 'é':'e', 'è':'e', 'ï':'i',
              ':':'', '(':'', ')':'', 'à':'a', "'":'', '-':'', '≥':'>=',
-             '+':''}
+             '+':'', '\\':'', '\n':'', ',':''}
 CLEAN_FILENAMES = {'Data_registre2013_20131231.xlsx':'2013',
                      'REGISTRE SUISSE 2016_version définitive.xlsx':'2016',
                      'REGISTRE SUISSE 2015_2017.03.09.xlsx':'2015',
@@ -35,6 +37,8 @@ CLEAN_FILENAMES = {'Data_registre2013_20131231.xlsx':'2013',
 # read excel files
 files = [filename for filename in os.listdir() if filename.endswith('.xlsx')]
 excel_files = {file:dict(pd.read_excel(file, None)) for file in files}
+# !!mutation correct misreading of 'Data_registre2013_20131231.xlsx/Diagnostics et scores 01.07.13'
+excel_files['Data_registre2013_20131231.xlsx']['Diagnostics et scores 01.07.13'] = excel_files['Data_registre2013_20131231.xlsx']['Diagnostics et scores 01.07.13'][:116]
 
 # sanitize file and sheet names, delete useless sheets (no mutation)
 class renamer():
@@ -134,7 +138,7 @@ def simplify_colnames(s):
 sheets_sane_index = {sn:sanitize_colnames(s).rename(columns=renamer()) for sn,s in sheets.items()}
 
 # sanitize sheet contents
-
+# getting unique values in each column
 uniques = {}
 for sn,s in sheets_sane_index.items():
     su = {}
@@ -142,10 +146,49 @@ for sn,s in sheets_sane_index.items():
         u = s[c].unique()
         su[c] = u
     uniques[sn] = su
-
+# write columns to files for easier visualization
 for sn,s in uniques.items():
     for cn,c in s.items():
         if c.dtype == 'O':
             with open('./uniques/'+ sn + '_save', 'a') as f:
                 f.write(sn + '_' + cn + ': ' + np.array_str(c) + '\n\n')
             
+# join all tables to make the final dataset
+def make_dataset(d):
+    """
+    Performs an iterative outer join on all tables, to produce a single dataset
+    """
+    df = pd.DataFrame(columns=['ui'])
+    for sn,s in d.items():
+        nd = pd.merge(df, s, how='outer', on=UNIQUE_INDEX, suffixes=SUFFIX)
+        cc = list(set(df.columns) & set(s.columns))  # common columns
+        #cc.remove(UNIQUE_INDEX)
+        cd = [c + SUFFIX[0] for c in cc] + [c + SUFFIX[1] for c in cc]
+        cr = list(set(nd.columns) - set(cd))
+        dfcc = pd.DataFrame(columns=cc)
+        df = pd.merge(nd, dfcc, how='left', on=UNIQUE_INDEX, suffixes=SUFFIX)
+        cc.remove(UNIQUE_INDEX)
+        for c in cc:
+            for s in SUFFIX:
+                df[c] = df[c].fillna(df[c + s])
+        df = df[cr]
+    return df
+
+# common columns to all tables
+cc = None
+for s in sheets_sane_index.values():
+    if cc is not None:
+       cc = set(s.columns).intersection(set(cc))
+    else:
+        cc = s.columns
+
+# make a maximally unique index
+sheets_unique_index = deepcopy(sheets_sane_index)
+for sn,s in sheets_unique_index.items():
+    s['ui'] = s[list(cc)].apply(lambda x: ''.join(sanitize_names(str(x).replace(' ',''))), axis=1)
+    print(sn + ':\t' + str(s.ui.unique().size==s.ui.size))
+
+
+
+ds = make_dataset(sheets_unique_index)
+ds.to_csv('final_dataset.csv')
