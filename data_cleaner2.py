@@ -5,6 +5,7 @@ Cleaning from unmodified raw sources directly to sql tables.
 This file should be located in the same directory as the data files.
 """
 from copy import deepcopy
+from datetime import datetime
 import numpy as np
 import os
 import pandas as pd
@@ -194,46 +195,116 @@ for s in sheets_sane_index.values():
 
 # make a maximally unique index
 sheets_unique_index = deepcopy(sheets_sane_index)
-
+"""
 ctrl = pd.DataFrame(columns=['sheet',
                      'unique_index?',
                      'any_null?'])
-
+"""
 for sn,s in sheets_unique_index.items():
     sheets_unique_index[sn] = s.dropna(subset=['edsfid'])
-    sheets_unique_index[sn] = sheets_unique_index[sn].assign(ui = sheets_unique_index[sn].edsfid.astype(str))
+    sheets_unique_index[sn]['ui'] = sheets_unique_index[sn]['edsfid']
     #s['ui'] = s['edsfid'].apply(lambda x: ''.join(x.astype(str)))
+    """
     ctrl = ctrl.append({'sheet':sn,
                         'unique_index?':bool(sheets_unique_index[sn].ui.unique().size<sheets_unique_index[sn].ui.size),
                         'any_null?':bool(sheets_unique_index[sn]['ui'].isnull().any())}, ignore_index=True)
 print(ctrl)
-
+"""
 #keys = list(set(sum([s['ui'].tolist() for s in sheets_unique_index.values()],[])))
 ds = make_dataset(sheets_unique_index)
 
 # further clean the dataset (!!mutation)
+# replace
 ds.rename(columns={'ui':'eds'}, inplace=True)
 ds = ds.set_index('eds')
+ds.columns = [unidecode(c) for c in ds.columns]
+ds = ds.applymap(lambda x: np.nan if type(x) is not str and x == 999 else x)
+ds = ds.applymap(lambda s: unidecode(s) if type(s) is str else s)
+
 # drop
-#ds.dropna(axis=0, how='all', inplace=True)
-ds.dropna(axis=0, inplace=True, thresh=((lambda x: round(x*0.06))(ds.shape[0])))
-ds.dropna(axis=1, inplace=True, thresh=((lambda x: round(x*0.1))(ds.shape[1])))
+"""
+ds.drop(['edsfid'], axis=1, inplace=True)
+ds.dropna(axis=0, inplace=True, thresh=((lambda x: round(x*0.055))(ds.shape[0])))  #0.55
+ds.dropna(axis=1, inplace=True, thresh=((lambda x: round(x*0.1))(ds.shape[1])))  #0.1
 ds.drop([c for c in ds.columns if 0 in ds[c].unique().tolist() and ds[c].unique().shape[0] is 2 and ds[c].isnull().values.any()],inplace=True,axis=1)
 ds.drop([c for c in ds.columns if '0 = non' in ds[c].unique().tolist() and ds[c].unique().shape[0] is 2 and ds[c].isnull().values.any()],inplace=True,axis=1)
 ds.drop(list(ds.filter(regex = 'unknown|unnamed|↓|^_\\d+$|^_*$|^[0-9]+$')),
         axis = 1, inplace = True)
-#ds.drop(['edsfid'], axis=1, inplace=True)
-#ds.drop([c for c in  ds.columns if ds[c].notnull().sum()/ds.shape[0]<0.1], axis=1, inplace=True)
+"""
 # replace
 ds.replace(to_replace={'^0\s*=\s*non$':0, '^1\s*=\s*oui$':1,
-                       '^\s*oui\s*$':1, '^\s*non\s*$':0, '^9\s*=\s*inconnu$':9,
+                       '^\s*oui\s*$':1, '^\s*non\s*$':0, '^9\s*=\s*inconnu$':np.nan,
                        '^NR$':np.nan
                        },inplace=True,regex=True)
-ds = ds.applymap(lambda x: np.nan if type(x) is not str and x == 999 else x)
-ds = ds.applymap(lambda s: unidecode(s) if type(s) is str else s)
+ds.grossesse_f.replace({'M':2, 'non':1, 'F':3},inplace=True)
+ds.trauma_penetrant = ds.type_de_trauma.replace(to_replace={'1 = non penetrant':0,
+                                      '1 = non-perforant':0,
+                                      '2 = penetrant':1,
+                                      '2 = perforant':0})
+ds.trauma_perforant = ds.type_de_trauma.replace(to_replace={'1 = non penetrant':0,
+                                      '1 = non-perforant':0,
+                                      '2 = penetrant':0,
+                                      '2 = perforant':1})
+ds.gravite_trauma = ds.type_de_trauma.replace(to_replace={'1 = non penetrant':0,
+                                      '1 = non-perforant':0,
+                                      '2 = penetrant':1,
+                                      '2 = perforant':1})
+ds.destination_a_la_sortie_de_lhopital.replace({'0 = patho( DCD) ':0,
+                                                '1 = domicile':1,
+                                                '2 = centre de convalescence':2,
+                                                '4 = clinique psychiatrique':4,
+                                                '5 = rehabilitation':5,
+                                                '6 = autre hopital':6,
+                                                '16 = propre hopital/autre clinique':16}, inplace=True)
+ds.sexe.replace({'F':0, 'M':1}, inplace=True)
+ds.lieu_de_laccident.replace({'canton de Geneve':1,
+                              'extra-cantonal':2,
+                              'France':3,
+                              'inconnu':np.nan}, inplace=True)
+ds.domicile.replace({'Geneve':1,
+                     'Autre canton':2,
+                     'France':3,
+                     'Autre':4},inplace=True)
+ds.cause_du_trauma.replace({'1= accident':1,
+                            '3= auto-agression':3,
+                            '2= agression':2,
+                            9:np.nan,
+                            '3= auto-aggression':3},inplace=True)
+ds.intervention_complet.replace({'v':1},inplace=True)
+ds.mecanisme_du_trauma.replace({'4 = AVP pieton':4,
+                                '1 = AVP occupant vehicule a moteur ':1,
+                                '2 = AVP moto':3, '5 = Chute > sa hauteur':2,
+                                '6 = Chute de sa hauteur':6,
+                                '51 = chute a ski':51,
+                                '999 = inconnu':np.nan,
+                                '3 = AVP velo':3,
+                                '11 = Arme blanche':11, '10 = Arme a feu':10,
+                                '9 = struck by...':9,
+                                '12 = Autres    ':12},inplace=True)
+ds.duree_de_sejour_aux_si_jours.replace({datetime(1900, 1, 4, 0, 0):np.nan},inplace=True)
+ds.destination_a_la_sortie_du_box_du_su.replace({'1a=bloc operatoire':1,
+                                                 '2=SI':2,
+                                                 '3=box SU ou UO':3,
+                                                 '4=etage':4,
+                                                 "1b=salle d'arterio":11},inplace=True)
+ds.niveau_de_medicalisation_des_secours.replace({'3 = medecin cadre':3,
+                                                 '2 = cardiomobile':2,
+                                                 '1 = ambulanciers':1,
+                                                 '999 = non renseigne':np.nan,
+                                                 '4 = SMUR FR':4},inplace=True)
+ds.intervention_dans_le_box_su.replace({"0 = pas d'intervention":1,
+                                        '5 = pelviclamp':5,
+                                        '6 = autre':6},inplace=True)
+ds.exclusion_selon_critere_utstein.replace({'asphyxie':1},inplace=True)
+ds.drainage_thoracique_ou_exsufflation_prehosp.replace({'1 = non':1,
+                                                        '3 = drain thoracique':3},inplace=True)
+
+ds.drop(['type_de_trauma', 'prenom','cp',
+         'heure_gazo_vein_si', 'date_de_naissance'], axis=1, inplace=True)
 
 # group by eds
 #gds = ds.groupby('eds')
 #dsf = gds.nth(0,'all')
 
 ds.to_csv('final_dataset.csv')
+print(ds.shape)
