@@ -11,7 +11,7 @@ Cleaning from unmodified raw sources directly to sql tables.
 This file should be located in the same directory as the data files.
 """
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime,time
 from functools import reduce
 import numpy as np
 import os
@@ -42,7 +42,18 @@ CLEAN_FILENAMES = {'Data_registre2013_20131231.xlsx':'2013',
 DROPPED_COLUMNS = '^unnamed|^[0-9]+$|^[0-9]+\\.[0-9]+$|^\\.[0-9]+$'
 
 #regex patterns for cells
-IMPROPER_CELLS = ''
+IMPROPER_CELLS = {'^\\d+$': lambda s: float(s),'^\\d*(inconnu|inconnue)$':np.nan,
+                  '2perforant':2,
+                  '2penetrant':3,
+                  '^\\d[a-z]+$':lambda s: s[0],
+                  '^\\d\\d[a-z]+$':lambda s: s[:1],
+                  '^nr$':np.nan,
+                  '^999.*$':np.nan, '^nonteste$':np.nan, '^oui':1, '^non':0,
+                  '^si$':1, '^abdo$':1, '^[a-z]+lettredesortie$':np.nan,
+                  '^acr$':1, '^att[a-z]+$':np.nan, '^(?![\s\S])':np.nan,
+                  '^3ou4$':np.nan, '^babyshakingsynd$':1, '^externe$':1,
+                  '^bou$':1, '^ctthoracique$':1, '^peutetre$':np.nan,
+                  '^asthme$':1, '^admission24posttrauma$':1, '^ext$':np.nan}
 
 # read excel files
 files = [filename for filename in os.listdir() if filename.endswith('.xlsx')]
@@ -156,6 +167,27 @@ def sanitize_rows(s):
     n = n.drop_duplicates(subset=[INDEX])
     return n
 
+def sanitize_contents(s):
+    n = s.applymap(sanitize_with_regex)
+    n = n.applymap(lambda x: np.nan if x == 999 else x)
+    return n
+
+#pd.DataFrame({'a':[1, 2, 3], 'b':['1a', 3, '3abc']})['b'].str.replace(re.compile('^\\d[a-z]$'), lambda x: x[0][0])
+
+def sanitize_with_regex(s):
+    if type(s) is not str:
+        return s
+    else:
+        for k,v in IMPROPER_CELLS.items():
+            if re.match(k, s):
+                if not callable(v):
+                    return v
+                else:
+                    return v(s)
+        return s
+
+#pd.DataFrame({'a':[1, 2, 3], 'b':['1a', 3, '3abc']}).applymap(sanitize_with_regex)
+
 def sanitize_all(s):
     n = sanitize_index_structure(s)
     n = remove_null_columns(n)
@@ -184,4 +216,106 @@ def outer_join(l, r):
 
 dataset = reduce(lambda l,r: outer_join(l,r), sheets_sane.values())
 
-dataset.to_csv('dataset.csv')
+d = dataset
+d.index = d.edsfid
+d = sanitize_contents(d)
+d = d[d.intervention1aj0.astype(float) == 1.0]  # drop those not having immediate surgery
+l = ['datedenaissance', 'datedesortie', 'dateaccident',
+     'datedelaccident', 'datedela1ereintervention']
+t = ['dtarriveeausudebutpremiereintervention','dureedesejoursu',
+     'dtempsalarmedepart','heuredebutdelanesthesie','heurededepart']
+for c in l:
+    d[c] = d[c].apply(lambda e: pd.to_datetime(e) if isinstance(e, float) else e)
+for t1 in t:    
+    d[t1] = d[t1].apply(lambda e: e.strftime('%H:%M:%S') if isinstance(e, (time, datetime)) else e)
+
+
+d = d.drop(['edsfid','dossiernumerise','interventioncomplet','cp','autresperop',
+            'prenom', 'nom', 'dossiercomplet', 'autres'], axis=1)
+d.lieudelaccident.replace({'geneve':1, 'cantondegeneve':2, 'cantondevaud':3,
+                           'extracantonal':4, 'france':5, 'fr':5},inplace=True)
+d.destinationalasortiedelhopital.replace({16:6}, inplace=True)
+d.mecanismedutrauma.replace({'troncdarbre':12},inplace=True)
+d.domicile.replace({'geneve':1, 'france':3, 'autre':5, 'franceautre':4, 'autrecanton':2},inplace=True)
+d.sexe.replace({'m':1, 'f':0}, inplace=True)
+d.grossessef.replace({'m':0, 'f':0, 2:1}, inplace=True)
+d.grossessef[d.sexe==1] = 1
+d.cristalloidessu.replace({2000:1})
+d.dropna(how='all', axis=0, inplace=True)
+#d.dropna(axis=0, inplace=True, thresh=((lambda x: round(x*0.055))(ds.shape[0])))  #0.55
+d.dropna(axis=1, inplace=True, thresh=((lambda x: round(x*0.5))(d.shape[1])))  #0.1
+for cn,c in d.items():
+    if c.unique().shape[0] <= 2 and c.isnull().values.any():
+        d.drop([cn], axis=1, inplace=True)
+d.to_csv('dataset.csv')
+
+with open('key.txt', 'w') as f:
+    f.write('niveaudemedicalisationdessecours'+':\n\t'+'\n\t'.join(['1 ambulanciers',
+                                                      '2 cardiomobile',
+                                                      '3 medecincadre',
+                                                      '4 smurfr',
+                                                      '5 aucun']))
+    f.write('\n'+'destinationalasortiedelhopital'+':\n\t'+'\n\t'.join(['0 pathodcd',
+                                                                       '1 domicile',
+                                                                       '2 centredeconvalescence',
+                                                                       '3 ems',
+                                                                       '4 cliniquepsychiatrique',
+                                                                       '5 rehabilitation',
+                                                                       '6 autrehopital',
+                                                                       '7 lieudedetention',
+                                                                       '8autre']))
+    f.write('\n'+'typedepriseencharge'+':\n\t'+'\n\t'.join(['1 transferthopitalperipherique',
+                                                                       '2 transfertautretraumacenter',
+                                                                       '3 admissionprimaire',
+                                                                       '4 cmccentremedicochirurgical']))
+    f.write('\n'+'lieudelaccident'+':\n\t'+'\n\t'.join(['1 geneve',
+                                                        '2 cantondegeneve',
+                                                        '3 cantondevaud',
+                                                        '4 extracantonal',
+                                                        '5 france',
+                                                        '5 fr']))
+    f.write('\n'+'mecanismedutrauma'+':\n\t'+'\n\t'.join(['1 avpoccupantvehiculeamoteur',
+                                                          '2 avpmoto',
+                                                          '3 avpvelo',
+                                                          '4 avppieton',
+                                                          '5 chutesahauteur',
+                                                          '6 chutedesahauteur',
+                                                          '8 autreaccidentdetrafictrainbateau',
+                                                          '9struckby',
+                                                          '10armeafeu',
+                                                          '11 armeblanche',
+                                                          '12autres',
+                                                          '51chuteaski',
+                                                          '21avalancheeboulement']))
+    f.write('\n'+'domicile'+':\n\t'+'\n\t'.join(['1 geneve',
+                                                 '2 autrecanton',
+                                                 '3 france',
+                                                 '4 franceautre',
+                                                 '5 autre']))
+    f.write('\n'+'typedetrauma'+':\n\t'+'\n\t'.join(['1 non penetrant non perforant',
+                                                 '2 perforant',
+                                                 '3 penetrant']))
+    f.write('\n'+'destinationalasortieduboxdusu'+':\n\t'+'\n\t'.join(['1 bloc ou arterio',
+                                                 '2 si',
+                                                 '3 attente su',
+                                                 '4 etage',
+                                                 '5 pathodeces',
+                                                 '6 transfertautrehopital',
+                                                 '7 domicile',
+                                                 '8 sspisimpiousoinsintermediaires2bl',
+                                                 '10 autres']))
+    f.write('\n'+'destinationalasortiedubou'+':\n\t'+'\n\t'.join(['1 si',
+                                                 '2 sspi',
+                                                 '4 boxurgenceuo',
+                                                 '5 etage',
+                                                 '6 deces']))
+    f.write('\n'+'causedutrauma'+':\n\t'+'\n\t'.join(['1 accident',
+                                                 '2 aggression',
+                                                 '3 autoaggression']))
+    
+    
+
+#[s.causedutrauma.unique() for s in sheets_sane.values() if 'causedutrauma' in s.columns]
+#[cn+': '+ np.array_str(c.unique()) for cn,c in d.items() if len(c.unique().tolist())>2 and len(c.unique().tolist())<10]
+#[cn+': '+ np.array_str(c.unique()) for cn,c in d.items() if c.dtype==np.dtype('O') and len(set([type(e) for e in c.unique().tolist()]))>2 and len(c.unique().tolist())<10]
+#[cn+': '+ str([type(e) for e in c.unique().tolist()]) for cn,c in d.items() if c.dtype==np.dtype('O') and len(set([type(e) for e in c.unique().tolist()]))>2 and len(c.unique().tolist())<10]
