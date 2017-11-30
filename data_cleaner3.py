@@ -45,6 +45,7 @@ DROPPED_COLUMNS = '^unnamed|^[0-9]+$|^[0-9]+\\.[0-9]+$|^\\.[0-9]+$'
 IMPROPER_CELLS = {'^\\d+$': lambda s: float(s),'^\\d*(inconnu|inconnue)$':np.nan,
                   '2perforant':2,
                   '2penetrant':3,
+                  '^\\d[a-z]+\\d\\d[a-z][a-z]$':lambda s: s[0],
                   '^\\d[a-z]+$':lambda s: s[0],
                   '^\\d\\d[a-z]+$':lambda s: s[:1],
                   '^nr$':np.nan,
@@ -53,7 +54,10 @@ IMPROPER_CELLS = {'^\\d+$': lambda s: float(s),'^\\d*(inconnu|inconnue)$':np.nan
                   '^acr$':1, '^att[a-z]+$':np.nan, '^(?![\s\S])':np.nan,
                   '^3ou4$':np.nan, '^babyshakingsynd$':1, '^externe$':1,
                   '^bou$':1, '^ctthoracique$':1, '^peutetre$':np.nan,
-                  '^asthme$':1, '^admission24posttrauma$':1, '^ext$':np.nan}
+                  '^asthme$':1, '^admission24posttrauma$':1, '^ext$':np.nan,
+                  '^.+vg$':lambda s: s[:-3], '^coag$':np.nan,
+                  '^imprenable$':np.nan, '^inevaluable$':np.nan,
+                  '^irregulier$':np.nan,'^regulier$':np.nan}
 
 # read excel files
 files = [filename for filename in os.listdir() if filename.endswith('.xlsx')]
@@ -238,15 +242,22 @@ d.destinationalasortiedelhopital.replace({16:6}, inplace=True)
 d.mecanismedutrauma.replace({'troncdarbre':12},inplace=True)
 d.domicile.replace({'geneve':1, 'france':3, 'autre':5, 'franceautre':4, 'autrecanton':2},inplace=True)
 d.sexe.replace({'m':1, 'f':0}, inplace=True)
+d.quantiteprehosp.replace({10001500:1500, 7501000:1000, 7502000:2000, 8001000:1000},inplace=True)
 d.grossessef.replace({'m':0, 'f':0, 2:1}, inplace=True)
+d.poulsprehosp.replace({99111:np.nan}, inplace=True)
 d.grossessef[d.sexe==1] = 1
+d.cristalloidesperop.replace({'17624219sspi':np.nan},inplace=True)
 d.cristalloidessu.replace({2000:1})
 d.dropna(how='all', axis=0, inplace=True)
+d.destinationalasortieduboxdusu.replace({'8sspiousoinsintermediaires2bl':8,
+                                         '8sspisimpiousoinsintermediaires2bl':8,
+                                         '8sspisimpiousoinsintermediaires2el':8},inplace=True)
 #d.dropna(axis=0, inplace=True, thresh=((lambda x: round(x*0.055))(ds.shape[0])))  #0.55
 d.dropna(axis=1, inplace=True, thresh=((lambda x: round(x*0.5))(d.shape[1])))  #0.1
 for cn,c in d.items():
     if c.unique().shape[0] <= 2 and c.isnull().values.any():
         d.drop([cn], axis=1, inplace=True)
+d.columns = [s[:31] for s in d.columns]  #stata is limited to 32 chars variable length
 d.to_csv('dataset.csv')
 
 with open('key.txt', 'w') as f:
@@ -312,10 +323,9 @@ with open('key.txt', 'w') as f:
     f.write('\n'+'causedutrauma'+':\n\t'+'\n\t'.join(['1 accident',
                                                  '2 aggression',
                                                  '3 autoaggression']))
-    
-    
 
-#[s.causedutrauma.unique() for s in sheets_sane.values() if 'causedutrauma' in s.columns]
+
+#[s.quantiteprehosp.unique() for s in sheets_sane.values() if 'quantiteprehosp' in s.columns]
 #[cn+': '+ np.array_str(c.unique()) for cn,c in d.items() if len(c.unique().tolist())>2 and len(c.unique().tolist())<10]
 #[cn+': '+ np.array_str(c.unique()) for cn,c in d.items() if c.dtype==np.dtype('O') and len(set([type(e) for e in c.unique().tolist()]))>2 and len(c.unique().tolist())<10]
 #[cn+': '+ str([type(e) for e in c.unique().tolist()]) for cn,c in d.items() if c.dtype==np.dtype('O') and len(set([type(e) for e in c.unique().tolist()]))>2 and len(c.unique().tolist())<10]
