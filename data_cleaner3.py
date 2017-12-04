@@ -289,6 +289,8 @@ d['jourpostopj04'] = pd.concat([d['jour3'].dropna(),
                                  d['jourpostopj0_3'].dropna()]).reindex_like(d)
 d['jourpostopj05'] = pd.concat([d['jour4'].dropna(),
                                  d['jourpostopj0_5'].dropna()]).reindex_like(d)
+d['rehosp'] = pd.concat([d['rehospitalisationpourmemeevenement'].dropna(),
+                        d['rehospitalisatonpourmemeevenement'].dropna()]).reindex_like(d)
     
 #d.dropna(axis=0, inplace=True, thresh=((lambda x: round(x*0.055))(ds.shape[0])))  #0.55
 #d.dropna(axis=1, inplace=True, thresh=((lambda x: round(x*0.4))(d.shape[1])))  #0.1
@@ -415,6 +417,24 @@ soins_intensifs = d[['datedelaccident', 'sejoursi', 'remarquessejourauxsi',
                      'dureetotaleintubationsauxsiheur', 'dureetotaledesejoursauxsijours',
                      'dureetotaledesejoursauxsiheures']]
 
+outcome = d[['datedelaccident', 'datedesortie', 'dureedhospitalisationjours',
+             'survivant', 'datedudeces', 'heuredudeces', 'djoursadmissiondeces',
+             'lesioncerebralealasortie', 'destinationalasortiedelhopital',
+             'suitedetraitement', 'complications', 'avc', 'infarctusmyocarde',
+             'emboliepulmonaire', 'tvp', 'escarres', 'ir',
+             'infectionplaie', 'pneumonie', 'infectionurinaire', 'sepsis',
+             'syndromedeloges', 'ards', 'acr', 'mof',
+             'autrespreciser', 'evolutionalongtermedeces28jours', 'rehosp'
+             ]]
+
+diagnostics_ais = d[sorted([i for i in d.columns.tolist() if re.search('headneck', i)]) +
+                    sorted([i for i in d.columns.tolist() if re.search('face', i)]) +
+                    sorted([i for i in d.columns.tolist() if re.search('chest', i)]) +
+                    sorted([i for i in d.columns.tolist() if re.search('abdomen', i)]) +
+                    sorted([i for i in d.columns.tolist() if re.search('pelvic', i)]) +
+                    sorted([i for i in d.columns.tolist() if re.search('external', i)]) +
+                    ['iss', 'niss', 'tarnps12', 'triss']]
+
 
 
 
@@ -424,6 +444,8 @@ prehosp.to_excel(writer, sheet_name='prehosp')
 boxesu.to_excel(writer, sheet_name='boxesu')
 intervention.to_excel(writer, sheet_name='intervention')
 soins_intensifs.to_excel(writer, sheet_name='soins_intensifs')
+outcome.to_excel(writer, sheet_name='outcome')
+diagnostics_ais.to_excel(writer, sheet_name='diagnostics_ais')
 writer.save()
 
 #[i for i in d.columns.tolist() if re.search('accident', i)]
