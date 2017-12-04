@@ -10,7 +10,6 @@ Created on Tue Nov 28 03:40:31 2017
 Cleaning from unmodified raw sources directly to sql tables.
 This file should be located in the same directory as the data files.
 """
-from copy import deepcopy
 from datetime import datetime,time
 from functools import reduce
 import numpy as np
@@ -224,6 +223,7 @@ d = dataset
 d.index = d.edsfid
 d = sanitize_contents(d)
 d = d[d.intervention1aj0.astype(float) == 1.0]  # drop those not having immediate surgery
+d = d[d.iss >= 16]  # drop those with iss < 16
 l = ['datedenaissance', 'datedesortie', 'dateaccident',
      'datedelaccident', 'datedela1ereintervention']
 t = ['dtarriveeausudebutpremiereintervention','dureedesejoursu',
@@ -252,14 +252,183 @@ d.dropna(how='all', axis=0, inplace=True)
 d.destinationalasortieduboxdusu.replace({'8sspiousoinsintermediaires2bl':8,
                                          '8sspisimpiousoinsintermediaires2bl':8,
                                          '8sspisimpiousoinsintermediaires2el':8},inplace=True)
+d = d.rename(columns={'drainagethoraciqueouexsufflationprehosp':'drainagethoraciqueprehosp'})
+d = d.rename(columns={'quantiteprehosp':'cristalprehosp'})
+d = d.rename(columns={'quantiteprehosp_1':'colloprehosp'})
+d = d.rename(columns={'quantiteprehosp1':'hyperosmprehosp'})
+d = d.rename(columns={'dosagesu':'cristalsu'})
+d = d.rename(columns={'dosagesu_1':'collosu'})
+d = d.rename(columns={'dosagesu_2':'hyperosmsu'})
+d = d.rename(columns={'totalculotserythrocytairesperopj0':'totceperopj0'})
+d = d.rename(columns={'totalconcentreserythrocytairespdt1eres24heures':'totce24hsi'})
+
+d['dtarriveedansleboxctthoracoabdo'] = pd.concat([d['dtarriveedansleboxctthoracoabdo'].dropna(), d['dtarriveedansleboxectthoracoabdo'].dropna()]).reindex_like(d)
+d['heuredebutop2'] = pd.concat([d['heuredebutintervention1'].dropna(),
+                                 d['heuredebutintervention_1'].dropna()]).reindex_like(d)
+d['heuredebutop3'] = pd.concat([d['heuredebutintervention2'].dropna(),
+                                 d['heuredebutintervention_2'].dropna()]).reindex_like(d)
+d['heuredebutop4'] = pd.concat([d['heuredebutintervention3'].dropna(),
+                                 d['heuredebutintervention_3'].dropna()]).reindex_like(d)
+d['heuredebutop5'] = pd.concat([d['heuredebutintervention4'].dropna(),
+                                 d['heuredebutintervention_4'].dropna()]).reindex_like(d)
+d['heurefinop2'] = pd.concat([d['heurefindintervention1'].dropna(),
+                                 d['heurefindintervention_1'].dropna()]).reindex_like(d)
+d['heurefinop3'] = pd.concat([d['heurefindintervention2'].dropna(),
+                                 d['heurefindintervention_2'].dropna()]).reindex_like(d)
+d['heurefinop4'] = pd.concat([d['heurefindintervention3'].dropna(),
+                                 d['heurefindintervention_3'].dropna()]).reindex_like(d)
+d['heurefinop5'] = pd.concat([d['heurefindintervention4'].dropna(),
+                                 d['heurefindintervention_4'].dropna()]).reindex_like(d)
+d['jourpostopj01'] = pd.concat([d['jour'].dropna(),
+                                 d['jourpostopj0'].dropna()]).reindex_like(d)
+d['jourpostopj02'] = pd.concat([d['jour1'].dropna(),
+                                 d['jourpostopj0_1'].dropna()]).reindex_like(d)
+d['jourpostopj03'] = pd.concat([d['jour2'].dropna(),
+                                 d['jourpostopj0_2'].dropna()]).reindex_like(d)
+d['jourpostopj04'] = pd.concat([d['jour3'].dropna(),
+                                 d['jourpostopj0_3'].dropna()]).reindex_like(d)
+d['jourpostopj05'] = pd.concat([d['jour4'].dropna(),
+                                 d['jourpostopj0_5'].dropna()]).reindex_like(d)
+    
 #d.dropna(axis=0, inplace=True, thresh=((lambda x: round(x*0.055))(ds.shape[0])))  #0.55
-d.dropna(axis=1, inplace=True, thresh=((lambda x: round(x*0.5))(d.shape[1])))  #0.1
+#d.dropna(axis=1, inplace=True, thresh=((lambda x: round(x*0.4))(d.shape[1])))  #0.1
 for cn,c in d.items():
     if c.unique().shape[0] <= 2 and c.isnull().values.any():
         d.drop([cn], axis=1, inplace=True)
 d.columns = [s[:31] for s in d.columns]  #stata is limited to 32 chars variable length
-d.to_csv('dataset.csv')
+d.to_csv('./results/polytrauma.csv')
 
+# WRITE EXCEL FILE
+epidemio = d[['nip', 'datedenaissance', 'datedelaccident', 'datedenaissance',
+              'datedelaccident', 'age', 'sexe', 'pediatriejusqua16ans',
+              'grossessef', 'poids', 'taille', 'bmi' ,'domicile',
+              'typedepriseencharge', 'comorbiditespreexistantes',
+              'cardiopathieischemiquesansinfar', 'infarctusmyocarde',
+              'cardiopathieautre', 'isuffisancearterielle',
+              'pneumopathiechroniqueinsuffisan', 'asthme', 'hta',
+              'insuffisancerenale', 'diabete', 'obesite',
+              'maladiepsychiatriquedepressioni', 'ohchronique',
+              'cirrhosehepatique',
+              'dependanceautresmedicaments', 'tabagismeactif',
+              'hemopathiemaligne', 'tumeursolide', 'immunosuppresseurs',
+              'steroides', 'maladiecerebrovasculaire',
+              'troublesdelacraseconstitutionne', 'troublesdelacraseacquis',
+              'atcddemaladiethromboembolique', 'maladieneuromusculaire',
+              'causedutrauma', 'mecanismedutrauma', 'typedetrauma',
+              'alcoolisationaigueanamnese', 'alcoolemiemmoll', 'circonstancesaccident']]
+
+prehosp = d[['datedelaccident', 'absencededonnees', 'datedelalarme',
+             'heuredelalarme', 'heurededepart', 'dtempsalarmedepart',
+             'heuresursite', 'heurequittelieux', 'dtempsheuresursitequittelieux',
+             'dureesursiteequipeprehosp20mn', 'heuredarriveeadestination',
+             'lieudelaccident', 'zonedelaccident', 'decesavantlarriveedessecoursssr',
+             'niveaudemedicalisationdessecour', 'interventionprimaire',
+             'interventionsecondaire', 'naca', 'tasprehosp', 'tadprehosp',
+             'poulsprehosp', 'frprehosp', 'evaprehosp', 'sato2prehosp',
+             'fio2prehosp', 'gcsvprehosp', 'gcsmprehosp',
+             'gcstotalprehosp', 'minerve', 'ceinturepelvienne',
+             'drainagethoraciqueprehosp', 'intubationsursite', 'etco2co2expiresursiteprehosp',
+             'etco2co2expireadestinationpreho', 'mceprehosp', 'sedationprehosp',
+             'cristalloidesprehosp', 'cristalprehosp', 'colloidesprehosp',
+             'colloprehosp', 'soluteshyperosmolairesprehosp', 'hyperosmprehosp',
+             'aminesprehosp', 'mannitolprehosp', 'antalgieprehosp',
+             'acidetranexaminqueprehosp', 'antibiotiquesprehosp', 
+             'concentreserythrocytairesprehos', 'decessursite', 'moyendetransportauxhug',
+             'sitransporthelico', 'hopitaltransfereurtransfertseco',
+             'transportjusqualhopital1transfe', 'heurearriveedanshopital1',
+             'heuredepartdelhopital1', 'motifdutransfert', 'exclusionseloncritereutstein']]
+
+boxesu = d[['datedelaccident', 'trisumotifcode', 'boxdedechocage', 'activationtraumateam',
+            'heuredarriveedanslebox', 'dtempsalarmearriveedanslebox', 'gcsysu',
+            'gcsvsu', 'gcsmsu', 'gcstotalsu', 'gcstotal9nonintubealarrivee',
+            'poulssu', 'tassu', 'tadsu', 'temperaturesu', 'frsu', 'evainitialesu',
+            'evafinpriseenchargesu', 'sato2su', 'fio2su', 'intubationsu', 'mcesu',
+            'drainagethoraciquesu', 'interventiondansleboxsu',
+            'interventiondansleboxsuautre', 'sedationsu', 'aminessu',
+            'antibiotiquessu', 'cristalloidessu', 'cristalsu', 'colloidessu',
+            'collosu', 'soluteshyperosmolairessu', 'hyperosmsu', 'mannitolsu',
+            'antalgiesu', 'concentreserythrocytairessu', 'pfcsu', 'thrombapheresesu',
+            'medicamentsprothrombotiquessu', 'cyclokapronmgsu',
+            'fibrinogenegrsu', 'vitkmgkonakionsu', 'prothromplexuisu',
+            'heuregazoartsu', 'heuregazoveinsu', 'phsu', 'paco2su', 'pao2su',
+            'lactatesarterielsu', 'lactatesveineuxsu', 'hco3su', 'baseexcessartcbaseecfsu',
+            'hbsu', 'hctsu', 'thrombocytessu', 'quicksu', 'inrsu', 'pttsu',
+            'fibrinogenesu', 'rxthoraxsu', 'heurerxthorax', 'dtarriveedansleboxrxthorax',
+            'rxbassinsu', 'heurerxbassin', 'dtarriveedansleboxrxbassin',
+            'echographiefastsu', 'heureechographie', 'dtarriveedansleboxechographie',
+            'ctcerebralseulsu', 'heurectcerebral', 'dtarriveedansleboxctcerebral',
+            'ctthoracoabdoseul', 'heurectthoracoabdo', 'dtarriveedansleboxctthoracoabdo',
+            'cttotalbodysu', 'heurecttotalbody', 'dtarriveedansleboxcttotalbody',
+            'autrect', 'heureautrect', 'dtarriveedansleboxautrect',
+            'extubationdansleboxsu', 'destinationalasortieduboxdusu',
+            'decesdansleboxdusu', 'heurequittelieuxsu', 'dureedesejoursu']]
+
+intervention = d[['datedelaccident', 'interventionpdtsejour', 'datedela1ereintervention',
+                  'intervention1aj0', 'lieudela1ereinterventionaj0', 
+                  'heuredarriveeensalledinterventi', 'heuredebutdelanesthesie',
+                  'heuredebutintervention', 'heuredebut1ereintervention',
+                  'heurefindintervention', 'dureeintervention', 'departsalledintervention',
+                  'firstkeyemergencyintervention1', 'firstkeyemergencyintervention2',
+                  'firstkeyemergencyintervention3', 'firstkeyemergencyintervention4',
+                  'naturedela1ereainterventionj01', 'autresinterventionsaj02',
+                  'autresinterventionsaj03', 'autresinterventionsaj04',
+                  'autresinterventionsaj05', 'poulsperop', 'tasperop', 'tadperop',
+                  'sato2perop', 'temperatureperopt0', 'temperatureperopt30',
+                  'feco2perop', 'acrperop', 'phperop', 'paco2artperop',
+                  'pao2artperop', 'lactatesperop', 'baseexcessperop', 'hbperop',
+                  'hcteperop', 'cristalloidesperop', 'colloidesperop', 'soluteshyperosmolairesperop',
+                  'mannitolperop', 'aminesperop', 'totceperopj0', 'pfcperop',
+                  'thrombaphereseperop', 'medicamentsprothrombotiquespero',
+                  'novosevenperopenmg', 'cyclokapronperopenmg', 'fibrinogeneperopengr',
+                  'vitkkonakionperopenmg', 'prothromplexuiperop', 'anticoagulantsheparineperopenui',
+                  'destinationalasortiedubou',
+                  #'intervention1j1', 'dateintervention1j1',
+                  #'heuredebutop1', 'heurefinop1', 'jourpostopj01',  # not trivial, to review
+                  'intervention2j1', 'dateintervention2j1',
+                  'heuredebutop2', 'heurefinop2', 'jourpostopj02',
+                  'intervention3j1', 'dateintervention3j1',
+                  'heuredebutop3', 'heurefinop3', 'jourpostopj03',
+                  'intervention4j1', 'dateintervention4j1',
+                  'heuredebutop4', 'heurefinop4', 'jourpostopj04',
+                  'intervention5j1', 'dateintervention5j1',
+                  'heuredebutop5', 'heurefinop5', 'jourpostopj05',
+                  'nombredepassageaubloc', 'acrperopj1', 'decesaubloc']]
+
+soins_intensifs = d[['datedelaccident', 'sejoursi', 'remarquessejourauxsi',
+                     'heuredarriveeauxsij0', 'dtarriveeausuarriveeauxsi',
+                     'tassi', 'tadsi', 'poulssi', 'temperaturesi', 'sato2si',
+                     'intubesi', 'sedationsi', 'sousaminesa24hsi', 'antalgiea24hsi',
+                     'nbcependant1eres24hsi', 'nbpfcpendant1eres24hsi',
+                     'nbthrombapheresespendant1eres24', 'heuregazoartsi',
+                     'heuregazoveinsi', 'phsi', 'lactatessi', 'hco3artsi',
+                     'baseexcessartcbasebsi', 'baseexcessartcbaseecfsi',
+                     'hbsi', 'hctesi', 'thrombocytessi', 'quicksi', 'inrsi',
+                     'pttsi', 'fibrinogenesi', 'intubea24hsi', 'dureeintubationsiheures',
+                     'dureedesejourauxsiheures', 'dureedesejourauxsijours',
+                     'datesortiesi', 'scoresapsiisejour1', 'hemodialysehemofiltrationsi',
+                     'mofsi', 'sepsissi', 'acrsi', 'ardssi', 'totce24hsi',
+                     'totalpfcpdt1eres24heures', 'sejoursisejour2', 'dureeintubationsiheures_1',
+                     'dureedesejourauxsijours_1', 'dureedesejourauxsiheures_1',
+                     'datesortiesi_1', 'scoresapsiisejour2', 'sejoursisejour2',
+                     'dureeintubationsiheures_2', 'dureedesejourauxsiheures_2',
+                     'datesortiesi_2', 'scoresapsiisejour3', 'decessi',
+                     'dureetotaleintubationsauxsiheur', 'dureetotaledesejoursauxsijours',
+                     'dureetotaledesejoursauxsiheures']]
+
+
+
+
+writer = pd.ExcelWriter('./results/polytrauma.xlsx', engine='xlsxwriter')
+epidemio.to_excel(writer, sheet_name='epidemio')
+prehosp.to_excel(writer, sheet_name='prehosp')
+boxesu.to_excel(writer, sheet_name='boxesu')
+intervention.to_excel(writer, sheet_name='intervention')
+soins_intensifs.to_excel(writer, sheet_name='soins_intensifs')
+writer.save()
+
+#[i for i in d.columns.tolist() if re.search('accident', i)]
+
+# WRITE FILE KEY
 with open('key.txt', 'w') as f:
     f.write('niveaudemedicalisationdessecours'+':\n\t'+'\n\t'.join(['1 ambulanciers',
                                                       '2 cardiomobile',
