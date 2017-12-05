@@ -291,7 +291,137 @@ d['jourpostopj05'] = pd.concat([d['jour4'].dropna(),
                                  d['jourpostopj0_5'].dropna()]).reindex_like(d)
 d['rehosp'] = pd.concat([d['rehospitalisationpourmemeevenement'].dropna(),
                         d['rehospitalisatonpourmemeevenement'].dropna()]).reindex_like(d)
-    
+d['comorbiditespreexistantes'] = pd.concat([d['comorbiditepreexistante'].dropna(),
+                        d['comorbiditespreexistantes'].dropna()]).reindex_like(d)
+d['cardiopathieischemiquesansinfarctusrecent'] = pd.concat([d['cardiopathieischemiquesansinfarctusrecent'].dropna(),
+                        d['cardiopathie'].dropna()]).reindex_like(d)
+d['isuffisancearterielle'] = pd.concat([d['isuffisancearterielle'].dropna(),
+                        d['insuffisancearteriellepreexistante'].dropna()]).reindex_like(d)
+d['pneumopathiechroniqueinsuffisancerespiratoire'] = pd.concat([d['pneumopathiechroniqueinsuffisancerespiratoire'].dropna(),
+                        d['insuffisancerespiratoirepreexistante'].dropna()]).reindex_like(d)
+d['hta'] = pd.concat([d['hta'].dropna(),
+                        d['htapreexistante'].dropna()]).reindex_like(d)
+d['insuffisancerenale'] = pd.concat([d['insuffisancerenale'].dropna(),
+                        d['insuffisancerenalepreexistante'].dropna()]).reindex_like(d)
+d['diabete'] = pd.concat([d['diabete'].dropna(),
+                        d['diabetepreexistant'].dropna()]).reindex_like(d)
+d['obesite'] = pd.concat([d['obesite'].dropna(),
+                        d['obesitepreexistantebmi35obesitesevereoumorbide'].dropna()]).reindex_like(d)
+d['maladiepsychiatriquedepressioninclus'] = pd.concat([d['maladiepsychiatriquedepressioninclus'].dropna(),
+                        d['maladiepsychiatriquepreexistante'].dropna()]).reindex_like(d)
+d['toxicomanieactive'] = d['toxicomanieactive'].combine_first(d['dependanceautresmedicaments']).reindex_like(d)
+d['cirrhosehepatique'] = pd.concat([d['cirrhosehepatique'].dropna(),
+                        d['cirrhosepreexistante'].dropna()]).reindex_like(d)
+d['ohchronique'] = pd.concat([d['ohchronique'].dropna(),
+                        d['ethylismechronique92013'].dropna()]).reindex_like(d)
+d['tumeursolide'] = pd.concat([d['tumeursolide'].dropna(),
+                        d['maladietumoraleactivepreexistante'].dropna()]).reindex_like(d)
+d['tasprehosp'] = pd.concat([d['tasprehosp'].dropna(),
+                        d['tasystoliqueprehosp'].dropna()]).reindex_like(d)
+d['tadprehosp'] = pd.concat([d['tadprehosp'].dropna(),
+                        d['tadiastoliqueprehosp'].dropna()]).reindex_like(d)
+d['sato2prehosp'] = pd.concat([d['sato2prehosp'].dropna(),
+                        d['sao2prehosp'].dropna()]).reindex_like(d)
+d['gcstotalprehosp'] = pd.concat([d['gcstotalprehosp'].dropna(),
+                        d['gcsprehosp'].dropna()]).reindex_like(d)
+d['etco2co2expiresursiteprehosp'] = pd.concat([d['etco2co2expiresursiteprehosp'].dropna(),
+                        d['etco2co2expprehosp'].dropna()]).reindex_like(d)
+d['moyendetransportauxhug'] = pd.concat([d['moyendetransportauxhug'].dropna(),
+                        d['moyendetransport'].dropna()]).reindex_like(d)
+d['heuredarriveeadestination'] = d['heuredarriveeadestination'].combine_first(d['heuresursite']).reindex_like(d)
+d['boxdedechocage'] = pd.concat([d['boxdedechocage'].dropna(),
+                        d['boxerouge'].dropna()]).reindex_like(d)
+d['gcstotalsu'] = pd.concat([d['gcstotalsu'].dropna(),
+                        d['gcssu'].dropna()]).reindex_like(d)
+d['tassu'] = pd.concat([d['tassu'].dropna(),
+                        d['tasystoliquesu'].dropna()]).reindex_like(d)
+d['tadsu'] = pd.concat([d['tadsu'].dropna(),
+                        d['tadiastoliquesu'].dropna()]).reindex_like(d)
+d['frsu'] = pd.concat([d['frsu'].dropna(),
+                        d['frequencerespiratoiresu'].dropna()]).reindex_like(d)
+d['evainitialesu'] = pd.concat([d['evainitialesu'].dropna(),
+                        d['evaarriveesu'].dropna()]).reindex_like(d)
+d['evafinpriseenchargesu'] = pd.concat([d['evafinpriseenchargesu'].dropna(),
+                        d['evadepartsu'].dropna()]).reindex_like(d)
+d['sato2su'] = pd.concat([d['sato2su'].dropna(),
+                        d['saturationo2su'].dropna()]).reindex_like(d)
+d['concentreserythrocytairessu'] = pd.concat([d['concentreserythrocytairessu'].dropna(),
+                        d['culotserythrocytairessu'].dropna()]).reindex_like(d)
+d['phsu'] = pd.concat([d['phsu'].dropna(),
+                        d['phartsu'].dropna()]).reindex_like(d)
+d['paco2su'] = pd.concat([d['paco2su'].dropna(),
+                        d['paco2artsu'].dropna()]).reindex_like(d)
+d['pao2su'] = pd.concat([d['pao2su'].dropna(),
+                        d['pao2artsu'].dropna()]).reindex_like(d)
+d['lactatesarterielsu'] = pd.concat([d['lactatesarterielsu'].dropna(),
+                        d['lactateartsu'].dropna()]).reindex_like(d)
+d['lactatesveineuxsu'] = pd.concat([d['lactatesveineuxsu'].dropna(),
+                        d['lactateveineuxsu'].dropna()]).reindex_like(d)
+d['hco3su'] = pd.concat([d['hco3su'].dropna(),
+                        d['hco3artsu'].dropna()]).reindex_like(d)
+d['hctsu'] = pd.concat([d['hctsu'].dropna(),
+                        d['hctesu'].dropna()]).reindex_like(d)
+d['rxthoraxsu'] = pd.concat([d['rxthoraxsu'].dropna(),
+                        d['rxthorax'].dropna()]).reindex_like(d)
+d['rxbassinsu'] = pd.concat([d['rxbassinsu'].dropna(),
+                        d['rxbassin'].dropna()]).reindex_like(d)
+d['echographiefastsu'] = pd.concat([d['echographiefastsu'].dropna(),
+                        d['echographiefast'].dropna()]).reindex_like(d)
+d['ctcerebralseulsu'] = pd.concat([d['ctcerebralseulsu'].dropna(),
+                        d['ctcerebralseul'].dropna()]).reindex_like(d)
+d['lieudela1ereinterventionaj0'] = pd.concat([d['lieudela1ereinterventionaj0'].dropna(),
+                        d['lieudela1ereintervention'].dropna()]).reindex_like(d)
+d['naturedela1ereainterventionj01'] = pd.concat([d['naturedela1ereainterventionj01'].dropna(),
+                        d['naturedela1ereintervention'].dropna()]).reindex_like(d)
+d['autresinterventionsaj02'] = pd.concat([d['autresinterventionsaj02'].dropna(),
+                        d['autresinterventionsaj02emeint'].dropna()]).reindex_like(d)
+d['tasperop'] = pd.concat([d['tasperop'].dropna(),
+                        d['tasystoliqueperop'].dropna()]).reindex_like(d)
+d['tadperop'] = pd.concat([d['tadperop'].dropna(),
+                        d['tadiastoliqueperop'].dropna()]).reindex_like(d)
+d['sato2perop'] = pd.concat([d['sato2perop'].dropna(),
+                        d['saturationo2perop'].dropna()]).reindex_like(d)
+d['temperatureperopt0'] = pd.concat([d['temperatureperopt0'].dropna(),
+                        d['temperatureperop'].dropna()]).reindex_like(d)
+d['phperop'] = pd.concat([d['phperop'].dropna(),
+                        d['phartperop'].dropna()]).reindex_like(d)
+d['lactatesperop'] = pd.concat([d['lactatesperop'].dropna(),
+                        d['lactateartperop'].dropna()]).reindex_like(d)
+d['baseexcessperop'] = pd.concat([d['baseexcessperop'].dropna(),
+                        d['baseexcessartcbaseecfperop'].dropna()]).reindex_like(d)
+d['novosevenperopenmg'] = pd.concat([d['novosevenperopenmg'].dropna(),
+                        d['novosevenmgperop'].dropna()]).reindex_like(d)
+d['cyclokapronperopenmg'] = pd.concat([d['cyclokapronperopenmg'].dropna(),
+                        d['cyclocapronmgperop'].dropna()]).reindex_like(d)
+d['fibrinogeneperopengr'] = pd.concat([d['fibrinogeneperopengr'].dropna(),
+                        d['fibrinogenegrperop'].dropna()]).reindex_like(d)
+d['anticoagulantsheparineperopenui'] = pd.concat([d['anticoagulantsheparineperopenui'].dropna(),
+                        d['anticoagulantsheparineuiperop'].dropna()]).reindex_like(d)
+d['heuredarriveeauxsij0'] = pd.concat([d['heuredarriveeauxsij0'].dropna(),
+                        d['heuredarriveeauxsi'].dropna()]).reindex_like(d)
+d['tassi'] = pd.concat([d['tassi'].dropna(),
+                        d['tasystoliquesi'].dropna()]).reindex_like(d)
+d['tadsi'] = pd.concat([d['tadsi'].dropna(),
+                        d['tadiastoliquesi'].dropna()]).reindex_like(d)
+d['sato2si'] = pd.concat([d['sato2si'].dropna(),
+                        d['saturationo2si'].dropna()]).reindex_like(d)
+d['nbcependant1eres24hsi'] = pd.concat([d['nbcependant1eres24hsi'].dropna(),
+                        d['nbculotserythrocytairesj1si'].dropna()]).reindex_like(d)
+d['nbpfcpendant1eres24hsi'] = pd.concat([d['nbpfcpendant1eres24hsi'].dropna(),
+                        d['nbpfcj1si'].dropna()]).reindex_like(d)
+d['nbthrombapheresespendant1eres24hsi'] = pd.concat([d['nbthrombapheresespendant1eres24hsi'].dropna(),
+                        d['nbthrombapheresesj1si'].dropna()]).reindex_like(d)
+d['dureeintubationsiheures'] = pd.concat([d['dureeintubationsiheures'].dropna(),
+                        d['dureeintubationheuressi'].dropna()]).reindex_like(d)
+d['totce24hsi'] = pd.concat([d['totce24hsi'].dropna(),
+                        d['totalculotserythrocytairespdt1eres24heures'].dropna()]).reindex_like(d)
+d['dureetotaleintubationsauxsiheures'] = pd.concat([d['dureetotaleintubationsauxsiheures'].dropna(),
+                        d['dureeintubationheuressi'].dropna()]).reindex_like(d)
+d['dureetotaledesejoursauxsiheures'] = d['dureetotaledesejoursauxsiheures'].combine_first(
+                        d['dureedesejourauxsiheures']).reindex_like(d)
+d['dureetotaledesejoursauxsijours'] = d['dureetotaledesejoursauxsijours'].combine_first(
+                        d['dureedesejourauxsijours']).reindex_like(d)
+
 #d.dropna(axis=0, inplace=True, thresh=((lambda x: round(x*0.055))(ds.shape[0])))  #0.55
 #d.dropna(axis=1, inplace=True, thresh=((lambda x: round(x*0.4))(d.shape[1])))  #0.1
 for cn,c in d.items():
@@ -311,7 +441,7 @@ epidemio = d[['nip', 'datedenaissance', 'datedelaccident', 'datedenaissance',
               'insuffisancerenale', 'diabete', 'obesite',
               'maladiepsychiatriquedepressioni', 'ohchronique',
               'cirrhosehepatique',
-              'dependanceautresmedicaments', 'tabagismeactif',
+              'toxicomanieactive', 'tabagismeactif',
               'hemopathiemaligne', 'tumeursolide', 'immunosuppresseurs',
               'steroides', 'maladiecerebrovasculaire',
               'troublesdelacraseconstitutionne', 'troublesdelacraseacquis',
@@ -432,6 +562,7 @@ diagnostics_ais = d[sorted([i for i in d.columns.tolist() if re.search('headneck
                     sorted([i for i in d.columns.tolist() if re.search('chest', i)]) +
                     sorted([i for i in d.columns.tolist() if re.search('abdomen', i)]) +
                     sorted([i for i in d.columns.tolist() if re.search('pelvic', i)]) +
+                    ['aisextremitiespelvis'] +
                     sorted([i for i in d.columns.tolist() if re.search('external', i)]) +
                     ['iss', 'niss', 'tarnps12', 'triss']]
 
@@ -439,13 +570,13 @@ diagnostics_ais = d[sorted([i for i in d.columns.tolist() if re.search('headneck
 
 
 writer = pd.ExcelWriter('./results/polytrauma.xlsx', engine='xlsxwriter')
-epidemio.to_excel(writer, sheet_name='epidemio')
-prehosp.to_excel(writer, sheet_name='prehosp')
-boxesu.to_excel(writer, sheet_name='boxesu')
-intervention.to_excel(writer, sheet_name='intervention')
-soins_intensifs.to_excel(writer, sheet_name='soins_intensifs')
-outcome.to_excel(writer, sheet_name='outcome')
-diagnostics_ais.to_excel(writer, sheet_name='diagnostics_ais')
+epidemio.dropna(how='all').to_excel(writer, sheet_name='epidemio')
+prehosp.dropna(how='all').to_excel(writer, sheet_name='prehosp')
+boxesu.dropna(how='all').to_excel(writer, sheet_name='boxesu')
+intervention.dropna(how='all').to_excel(writer, sheet_name='intervention')
+soins_intensifs.dropna(how='all').to_excel(writer, sheet_name='soins_intensifs')
+outcome.dropna(how='all').to_excel(writer, sheet_name='outcome')
+diagnostics_ais.dropna(how='all').to_excel(writer, sheet_name='diagnostics_ais')
 writer.save()
 
 #[i for i in d.columns.tolist() if re.search('accident', i)]
