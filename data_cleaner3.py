@@ -428,7 +428,6 @@ for cn,c in d.items():
     if c.unique().shape[0] <= 2 and c.isnull().values.any():
         d.drop([cn], axis=1, inplace=True)
 d.columns = [s[:31] for s in d.columns]  #stata is limited to 32 chars variable length
-d.to_csv('./results/polytrauma.csv')
 
 # WRITE EXCEL FILE
 epidemio = d[['nip', 'datedenaissance', 'datedelaccident', 'datedenaissance',
@@ -449,7 +448,7 @@ epidemio = d[['nip', 'datedenaissance', 'datedelaccident', 'datedenaissance',
               'causedutrauma', 'mecanismedutrauma', 'typedetrauma',
               'alcoolisationaigueanamnese', 'alcoolemiemmoll', 'circonstancesaccident']]
 
-prehosp = d[['datedelaccident', 'absencededonnees', 'datedelalarme',
+prehosp = d[['absencededonnees', 'datedelalarme',
              'heuredelalarme', 'heurededepart', 'dtempsalarmedepart',
              'heuresursite', 'heurequittelieux', 'dtempsheuresursitequittelieux',
              'dureesursiteequipeprehosp20mn', 'heuredarriveeadestination',
@@ -470,7 +469,7 @@ prehosp = d[['datedelaccident', 'absencededonnees', 'datedelalarme',
              'transportjusqualhopital1transfe', 'heurearriveedanshopital1',
              'heuredepartdelhopital1', 'motifdutransfert', 'exclusionseloncritereutstein']]
 
-boxesu = d[['datedelaccident', 'trisumotifcode', 'boxdedechocage', 'activationtraumateam',
+boxesu = d[['trisumotifcode', 'boxdedechocage', 'activationtraumateam',
             'heuredarriveedanslebox', 'dtempsalarmearriveedanslebox', 'gcsysu',
             'gcsvsu', 'gcsmsu', 'gcstotalsu', 'gcstotal9nonintubealarrivee',
             'poulssu', 'tassu', 'tadsu', 'temperaturesu', 'frsu', 'evainitialesu',
@@ -495,7 +494,7 @@ boxesu = d[['datedelaccident', 'trisumotifcode', 'boxdedechocage', 'activationtr
             'extubationdansleboxsu', 'destinationalasortieduboxdusu',
             'decesdansleboxdusu', 'heurequittelieuxsu', 'dureedesejoursu']]
 
-intervention = d[['datedelaccident', 'interventionpdtsejour', 'datedela1ereintervention',
+intervention = d[['interventionpdtsejour', 'datedela1ereintervention',
                   'intervention1aj0', 'lieudela1ereinterventionaj0', 
                   'heuredarriveeensalledinterventi', 'heuredebutdelanesthesie',
                   'heuredebutintervention', 'heuredebut1ereintervention',
@@ -526,7 +525,7 @@ intervention = d[['datedelaccident', 'interventionpdtsejour', 'datedela1ereinter
                   'heuredebutop5', 'heurefinop5', 'jourpostopj05',
                   'nombredepassageaubloc', 'acrperopj1', 'decesaubloc']]
 
-soins_intensifs = d[['datedelaccident', 'sejoursi', 'remarquessejourauxsi',
+soins_intensifs = d[['sejoursi', 'remarquessejourauxsi',
                      'heuredarriveeauxsij0', 'dtarriveeausuarriveeauxsi',
                      'tassi', 'tadsi', 'poulssi', 'temperaturesi', 'sato2si',
                      'intubesi', 'sedationsi', 'sousaminesa24hsi', 'antalgiea24hsi',
@@ -547,7 +546,7 @@ soins_intensifs = d[['datedelaccident', 'sejoursi', 'remarquessejourauxsi',
                      'dureetotaleintubationsauxsiheur', 'dureetotaledesejoursauxsijours',
                      'dureetotaledesejoursauxsiheures']]
 
-outcome = d[['datedelaccident', 'datedesortie', 'dureedhospitalisationjours',
+outcome = d[['datedesortie', 'dureedhospitalisationjours',
              'survivant', 'datedudeces', 'heuredudeces', 'djoursadmissiondeces',
              'lesioncerebralealasortie', 'destinationalasortiedelhopital',
              'suitedetraitement', 'complications', 'avc', 'infarctusmyocarde',
@@ -578,6 +577,11 @@ soins_intensifs.dropna(how='all').to_excel(writer, sheet_name='soins_intensifs')
 outcome.dropna(how='all').to_excel(writer, sheet_name='outcome')
 diagnostics_ais.dropna(how='all').to_excel(writer, sheet_name='diagnostics_ais')
 writer.save()
+
+# FINAL DATASET
+final_dataset = pd.concat([epidemio, prehosp, boxesu, intervention,
+                           soins_intensifs, outcome, diagnostics_ais], axis=1)
+final_dataset.to_csv('./results/polytrauma.csv')
 
 #[i for i in d.columns.tolist() if re.search('accident', i)]
 
