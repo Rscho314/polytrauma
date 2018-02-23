@@ -5,4 +5,6 @@
 *.db
 /uniques
 /results
+/DANI/.ipynb_checkpoints
 *.csv
+*.zip
