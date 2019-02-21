@@ -1,28 +1,41 @@
 #!/usr/bin/env python3
 
-import zipfile
+import os
 import numpy as np
 import pandas as pd
-from io import BytesIO
 from functools import reduce
 
 # Read DANI data
-print("unzipping data...")
-with zipfile.ZipFile("polytrauma.zip", "r") as zf:
-    datalist = [zf.read(f) for f in zf.namelist()]
-    d = {name: BytesIO(datum)  for (name, datum) in zip(zf.namelist(), datalist)}
+print("reading files names...")
+p = "/home/raoul/Desktop/polytrauma/DANI"
+ps = [os.path.join(p,fn) for fn in os.listdir(p) if fn.endswith('.xlsx')]
 
+
+# Get data into pandas
 print("creating Pandas datasets...")
-# get data into pandas
-pandas_data = {name: (pd.read_excel(data, header=0, skiprows=6, usecols=4, index_col=0) if name != "polytrauma.xlsx" else pd.read_excel(data, index_col=1)) for (name, data) in d.items()}
+pandas_data = {os.path.split(name)[1] : (pd.read_excel(name,
+                                                       header=0,
+                                                       skiprows=6,
+                                                       usecols=4,
+                                                       index_col=0)
+                                        if os.path.split(name)[1] not in ["polytrauma.xlsx"]
+                                        else pd.read_excel(name, index_col=1)) for name in ps}
+
+pandas_data['ventilation2.xlsx'] = pd.read_excel(os.path.join(p,
+                                                              'ventilation2.xlsx'),
+                                                 header=0,
+                                                 usecols=4,
+                                                 index_col=0)
 
 # separate raw DANI files from custom file
-data_to_aggregate = {name: data for (name, data) in pandas_data.items() if name != "polytrauma.xlsx"}
-
 # remove 1st row
-dani_data = {name:data.drop(data.index[0]) for (name, data) in data_to_aggregate.items()}
+dani_data = {name:data.drop(data.index[0]) for (name, data) in pandas_data.items() if name not in ['polytrauma.xlsx', 'ventilation2.xlsx']}
+dani_data['ventilation2.xlsx'] = pandas_data['ventilation2.xlsx']
 
 # base datasets
+eds_2013_2017 = pd.read_csv(os.path.join(p,"eds_2013-2017.csv"))  # liste 284 patients par M Licker
+eds_2018 = pd.read_csv(os.path.join(p,"eds_2018.csv"))
+eds_all = pd.concat([eds_2013_2017, eds_2018])
 custom = pandas_data["polytrauma.xlsx"]
 time_sample = pd.DataFrame(index=custom.index, data={"period":pd.PeriodIndex(custom.datedela1ereintervention, freq="2D")})
 
@@ -36,12 +49,14 @@ def clean_before_agg(d):
     d2 = pd.concat([d1, time_sample], axis=1, join="inner")
     return d2[(d2.period.dt.start_time < d2.reftime) & (d2.period.dt.end_time > d2.reftime)]
 
-events = dani_data["polytrauma_duree.xlsx"]
+
+events = [dani_data["polytrauma_duree.xlsx"], dani_data["polytrauma_duree_2018.xlsx"]]
+events = pd.concat(events)
 events = clean_before_agg(events)
 time = events[events["Nom de l'événement"]!="Recrutement pulmonaire"]
 recrutement = events[events["Nom de l'événement"]=="Recrutement pulmonaire"]
 
-rest = {name: data for (name, data) in dani_data.items() if name != "polytrauma_duree.xlsx"}
+rest = {name: data for (name, data) in dani_data.items() if name not in ["polytrauma_duree.xlsx", "polytrauma_duree_2018.xlsx"]}
 signal = pd.concat(rest.values())
 signal = clean_before_agg(signal)
 
@@ -51,7 +66,12 @@ intervention = duration[duration["Nom de l'événement"]=="Intervention"]
 anesthesie = duration[duration["Nom de l'événement"]=="Anesthésie"]
 signals = {k:v for k,v in signal.groupby(by="Nom du paramètre")}
 signals_grouped = {name:data.groupby(by=data.index) for name,data in signals.items()}
-varnames = ['freq_resp', 'hct', 'hb', 'lactate', 'ph', 'peep', 'ktart_dia', 'ktart_moy', 'ktart_sys', 'pni_dia', 'pni_moy', 'pni_sys', 'p_plateau', 'urines', 'tidal', 'vent_min']
+varnames = ['freq_resp', 'freq_card', 'freq_cardp',
+            'hct', 'hb', 'lactate', 'ph', 'peep',
+            'ktart_dia', 'ktart_moy', 'ktart_sys',
+            'pni_dia', 'pni_moy', 'pni_sys',
+            'p_plateau', 'urines',
+            'tidal_exp', 'tidal_ins', 'tidal_set', 'vent_min_exp', 'vent_min_spont']
 signals_new_names = {nk:signals_grouped[k] for (k, nk) in zip(list(signals_grouped.keys()), varnames)}
 
 def perc25(x):
@@ -88,13 +108,17 @@ for c in list(final.columns):
         final[c] = final[c].fillna(res_time[c])
     if c in list(res_signal.columns):
         final[c] = final[c].fillna(res_signal[c])
-    if c is "recrutement":
+    if c == "recrutement":
         final["recrutement"] = final["recrutement"].fillna(res_recrutement)
     if c in ["debut_chir", "fin_chir", "debut_anesth", "fin_anesth"]:
         final[c] = pd.DatetimeIndex(final[c])
 
+# filter patients not in M Licker's list for 2013-2017
+final = final[final["eds"].isin(eds_all["eds"])]
+
+
 # Write final files
-final.to_excel("final_polytrauma.xlsx")
-writer = pd.io.stata.StataWriter('./final_polytrauma.dta', final)
+final.to_excel("../final_polytrauma.xlsx")
+writer = pd.io.stata.StataWriter('../final_polytrauma.dta', final)
 writer.write_file()
 print("done.")
