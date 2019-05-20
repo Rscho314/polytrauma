@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import re
 import numpy as np
 import pandas as pd
 from functools import reduce
@@ -115,10 +116,75 @@ for c in list(final.columns):
 
 # filter patients not in M Licker's list for 2013-2017
 final = final[final["eds"].isin(eds_all["eds"])]
+final_2018 = final[final["eds"].isin(eds_2018["eds"])]
 
 
 # Write final files
-final.to_excel("../final_polytrauma.xlsx")
-writer = pd.io.stata.StataWriter('../final_polytrauma.dta', final)
-writer.write_file()
+#final.to_excel("../final_polytrauma.xlsx")
+#writer = pd.io.stata.StataWriter('../final_polytrauma.dta', final)
+#writer.write_file()
+#final_2018.to_excel("../final_polytrauma_2018.xlsx")
+
+# ADDING ICU DATA
+ICU_ps = ["/home/raoul/Desktop/polytrauma/ICU_data.xlsx",
+          "/home/raoul/Desktop/polytrauma/Datas_patients_2018.xlsx"]
+ICU_data = {os.path.split(name)[1] : (pd.read_excel(name,
+                                                       header=0,
+                                                       skipcols=0,
+                                                       index_col=0))
+                                                    for name in ICU_ps}
+
+for v in ICU_data.values():
+    v.sort_index(axis=1, inplace=True)
+
+ref_names = list(ICU_data['ICU_data.xlsx'].columns)
+icu_names = ref_names.copy()
+icu_names.remove('date_accident')
+
+for k, v in ICU_data.items():
+    if k != 'ICU_data.xlsx':
+        v.columns = icu_names
+
+ICU_agg = pd.concat(list(ICU_data.values()))
+ICU_agg = ICU_agg.rename({'EDS' : 'eds'}, axis=1)
+# FUSE ANESTHESIA & ICU DATA
+data_icu_anest = pd.merge(final, ICU_agg, on='eds', how='left')
+
+
+# ADDING DIAGNOSTIC CODES
+diag_ps = ["/home/raoul/Desktop/polytrauma/Ticket_155434.xlsx",
+           "/home/raoul/Desktop/polytrauma/Ticket_364171.xlsx"]
+diag_data = {os.path.split(name)[1] : (pd.read_excel(name,
+                                                       header=3,
+                                                       skipcols=1,
+                                                       index_col=1))
+                                                    for name in diag_ps}
+diag_agg = diag_data['Ticket_155434.xlsx'].append([diag_data['Ticket_364171.xlsx']])
+
+hta_codes = re.compile(r'\|I1(?:0|1|2|3|5)\.')
+diag_agg['hta'] = diag_agg['CIM'].str.contains(hta_codes, regex=True)
+diab_codes = re.compile(r'\|E1(?:0|1|3|4)\.')
+diag_agg['diabete'] = diag_agg['CIM'].str.contains(diab_codes, regex=True)
+diag_agg['cholesterol'] = diag_agg['CIM'].str.contains('|E78.0', regex=False)
+diag_agg['chd'] = diag_agg['CIM'].str.contains('I25.', regex=False)
+iami_codes = re.compile(r'\|I70\.|\|I71\.|\|I73\.(?:1|8|9)|\|I77\.1|\|I79\.(?:0|2)|\|K55\.(?:1|8|9)|\|Z95\.(?:8|9)')
+diag_agg['iami'] = diag_agg['CIM'].str.contains(iami_codes, regex=True)
+copd_codes = re.compile(r'\|J4(?:0|1|2|3|4)\.|\|J47\.|\|J6(?:0|1|2|3|4|5|6|7)\.|\|J68\.4|\|J70\.(?:1|3)')
+diag_agg['copd'] = diag_agg['CIM'].str.contains(copd_codes, regex=True)
+asthma_codes = re.compile(r'\|J4(?:5|6)\.')
+diag_agg['asthma'] = diag_agg['CIM'].str.contains(asthma_codes, regex=True)
+diag_agg['smoke'] = diag_agg['CIM'].str.contains('F17.2', regex=False)
+ckd_codes = re.compile(r'\|N18\.|\|I12\.0|\|I13\.1|\|Z99\.2')
+diag_agg['ckd'] = diag_agg['CIM'].str.contains(ckd_codes, regex=True)
+pneumonia_codes = re.compile(r'\|J1(?:3|4|5|6|7|8)|\|J69')
+diag_agg['pneumonia'] = diag_agg['CIM'].str.contains(pneumonia_codes, regex=True)
+diag_agg['ards'] = diag_agg['CIM'].str.contains('J80.', regex=False)
+acute_resp_insuff_codes = re.compile(r'\|J95\.(?:1|2)|\|J96\.0')
+diag_agg['acute_resp_insuff'] = diag_agg['CIM'].str.contains(acute_resp_insuff_codes, regex=True)
+
+
+# FUSE DIAGNOSTICS TO MAIN DATA
+data_all = pd.merge(data_icu_anest, diag_agg, left_on='eds', right_on='EDS_EXCEL', how='left')
+data_all.to_excel("../polytrauma_all.xlsx")
+
 print("done.")
